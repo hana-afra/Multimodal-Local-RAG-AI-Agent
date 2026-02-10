@@ -162,7 +162,7 @@ Expense reimbursement requires:
 - Manager approval within 30 days
 - Submission via finance portal
 
-
+---
 
 ### **🔹 Analytics Dashboard**
 
@@ -208,5 +208,5 @@ Expense reimbursement requires:
 - ✅ **Audit Trail** via query analytics
 - ✅ **Error Monitoring** for system security
 
-
+---
 **🚀 Ready to revolutionize your document Q&A system? Get started now!**
