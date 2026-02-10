@@ -1,0 +1,171 @@
+{
+  "name": "Alert Errors",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9aae712e-4c24-45f4-8216-44839f63357c",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1AdN7AJJCBp591_ltps0SQButJqmdzwBIQC9N-0XVtuQ",
+          "mode": "list",
+          "cachedResultName": "N8N_Error_Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AdN7AJJCBp591_ltps0SQButJqmdzwBIQC9N-0XVtuQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1AdN7AJJCBp591_ltps0SQButJqmdzwBIQC9N-0XVtuQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "URL": "={{ $json.execution.url }}",
+            "Workflow": "={{ $json.workflow.name }}",
+            "Node": "={{ $json.execution.mode }}",
+            "Error Message": "={{ $json.execution.error.message }}",
+            "Timestamp": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Workflow",
+              "displayName": "Workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Node",
+              "displayName": "Node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error Message",
+              "displayName": "Error Message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        -128
+      ],
+      "id": "2c928f3c-3ff6-46c5-8b56-9858a198fdbe",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UgtT6N9pwKarSvsr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "hana.afra@ensia.edu.dz",
+        "subject": "Alert N8N Workflow Error",
+        "emailType": "text",
+        "message": "=You have and error message saying : {{ $json.execution.error.message }} , in  workflow : {{ $json.workflow.name }}, at node : {{ $json.execution.mode }}, at time: {{ $now }} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        80
+      ],
+      "id": "fa07f731-034f-468d-8c1b-0b9bbcc2d1f0",
+      "name": "Send a message",
+      "webhookId": "3d618789-97a4-42ca-ae20-48f7213fe375",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "tzjyifqSFx7zqTHj",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "01324af1-90b9-4492-9740-c24b083cc54a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "5mYPK8OAxsf0E_ewN4PRw",
+  "tags": []
+}

@@ -1,0 +1,146 @@
+{
+  "name": "Query Analytics Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "analytics-dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "36a47a9b-7e2d-4494-b241-35eb0d85b53f",
+      "name": "Webhook",
+      "webhookId": "ce3d6954-9379-433b-9da7-dbc5a03bcde2"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>RAG Query Analytics</title>\n    <style>\n        * { margin: 0; padding: 0; box-sizing: border-box; }\n        body {\n            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;\n            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n            padding: 20px;\n            min-height: 100vh;\n        }\n        .container {\n            max-width: 1200px;\n            margin: 0 auto;\n        }\n        h1 {\n            color: white;\n            text-align: center;\n            margin-bottom: 30px;\n            font-size: 2.5em;\n            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);\n        }\n        .stats-grid {\n            display: grid;\n            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));\n            gap: 20px;\n            margin-bottom: 30px;\n        }\n        .stat-card {\n            background: white;\n            padding: 25px;\n            border-radius: 12px;\n            box-shadow: 0 4px 6px rgba(0,0,0,0.1);\n            transition: transform 0.3s;\n        }\n        .stat-card:hover {\n            transform: translateY(-5px);\n        }\n        .stat-value {\n            font-size: 42px;\n            font-weight: bold;\n            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n            -webkit-background-clip: text;\n            -webkit-text-fill-color: transparent;\n            background-clip: text;\n        }\n        .stat-label {\n            color: #666;\n            margin-top: 8px;\n            font-size: 14px;\n            text-transform: uppercase;\n            letter-spacing: 1px;\n        }\n        .section {\n            background: white;\n            padding: 25px;\n            border-radius: 12px;\n            box-shadow: 0 4px 6px rgba(0,0,0,0.1);\n            margin-bottom: 20px;\n        }\n        .section h2 {\n            margin-top: 0;\n            color: #333;\n            border-bottom: 3px solid #667eea;\n            padding-bottom: 12px;\n            margin-bottom: 20px;\n        }\n        table {\n            width: 100%;\n            border-collapse: collapse;\n        }\n        th, td {\n            padding: 12px;\n            text-align: left;\n            border-bottom: 1px solid #e0e0e0;\n        }\n        th {\n            background: #f8f9fa;\n            font-weight: 600;\n            color: #667eea;\n        }\n        tr:hover {\n            background: #f8f9fa;\n        }\n        .btn-container {\n            text-align: center;\n            margin-top: 30px;\n        }\n        .download-btn {\n            display: inline-block;\n            background: white;\n            color: #667eea;\n            padding: 15px 30px;\n            border-radius: 8px;\n            text-decoration: none;\n            font-weight: bold;\n            box-shadow: 0 4px 6px rgba(0,0,0,0.1);\n            transition: all 0.3s;\n            margin: 0 10px;\n        }\n        .download-btn:hover {\n            transform: translateY(-2px);\n            box-shadow: 0 6px 12px rgba(0,0,0,0.15);\n        }\n        .refresh-btn {\n            background: #667eea;\n            color: white;\n        }\n        .empty-state {\n            text-align: center;\n            color: #999;\n            padding: 40px;\n            font-style: italic;\n        }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <h1>📊 RAG Query Analytics Dashboard</h1>\n        \n        <div class=\"stats-grid\">\n            <div class=\"stat-card\">\n                <div class=\"stat-value\">{{ $json.stats.totalQueries }}</div>\n                <div class=\"stat-label\">Total Queries</div>\n            </div>\n            <div class=\"stat-card\">\n                <div class=\"stat-value\">{{ $json.stats.avgResponseTime }}ms</div>\n                <div class=\"stat-label\">Avg Response Time</div>\n            </div>\n            <div class=\"stat-card\">\n                <div class=\"stat-value\">{{ $json.stats.topDocuments.length }}</div>\n                <div class=\"stat-label\">Documents Used</div>\n            </div>\n        </div>\n        \n        <div class=\"section\">\n            <h2>🔥 Top Questions Asked</h2>\n            {{ $json.stats.topQuestions.length > 0 ? `\n            <table>\n                <tr>\n                    <th>Question</th>\n                    <th>Count</th>\n                </tr>\n                ${$json.stats.topQuestions.map(q => `\n                <tr>\n                    <td>${q.question}...</td>\n                    <td><strong>${q.count}</strong></td>\n                </tr>\n                `).join('')}\n            </table>\n            ` : '<div class=\"empty-state\">No queries yet</div>' }}\n        </div>\n        \n        <div class=\"section\">\n            <h2>📄 Most Referenced Documents</h2>\n            {{ $json.stats.topDocuments.length > 0 ? `\n            <table>\n                <tr>\n                    <th>Document</th>\n                    <th>Times Used</th>\n                </tr>\n                ${$json.stats.topDocuments.map(d => `\n                <tr>\n                    <td>${d.document}</td>\n                    <td><strong>${d.count}</strong></td>\n                </tr>\n                `).join('')}\n            </table>\n            ` : '<div class=\"empty-state\">No documents tracked yet</div>' }}\n        </div>\n        \n        <div class=\"section\">\n            <h2>🕐 Recent Queries</h2>\n            {{ $json.stats.recentQueries.length > 0 ? `\n            <table>\n                <tr>\n                    <th>Time</th>\n                    <th>Question</th>\n                    <th>Response Time</th>\n                </tr>\n                ${$json.stats.recentQueries.map(q => `\n                <tr>\n                    <td>${q.timestamp}</td>\n                    <td>${q.question}...</td>\n                    <td>${q.responseTime}ms</td>\n                </tr>\n                `).join('')}\n            </table>\n            ` : '<div class=\"empty-state\">No recent queries</div>' }}\n        </div>\n        \n        <div class=\"btn-container\">\n            <a href=\"javascript:location.reload()\" class=\"download-btn refresh-btn\">🔄 Refresh Data</a>\n            <a href=\"https://docs.google.com/spreadsheets/d/17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc/edit?usp=sharing\" target=\"_blank\" class=\"download-btn\">📊 Open Google Sheet</a>\n        </div>\n    </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        624,
+        0
+      ],
+      "id": "10feed24-358d-4e0f-97ae-ccb5edb9b5ff",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc",
+          "mode": "list",
+          "cachedResultName": "RAG Query Analytics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "9569c433-e5df-4d72-a394-effbe5362302",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UgtT6N9pwKarSvsr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nlet stats = {\n  totalQueries: 0,\n  avgResponseTime: 0,\n  topQuestions: [],\n  topDocuments: [],\n  recentQueries: []\n};\n\nif (rows.length === 0) {\n  return [{ json: { stats } }];\n}\n\nstats.totalQueries = rows.length;\n\nlet totalTime = 0;\nlet questionCounts = {};\nlet documentCounts = {};\n\n// Process each row\nrows.forEach((row, index) => {\n  const data = row.json;\n  \n  // Skip header row if present\n  if (data.Timestamp === 'Timestamp') return;\n  \n  const question = data.Question || '';\n  const responseTime = parseInt(data['Response Time (ms)']) || 0;\n  const documentsUsed = data['Documents Used'] || '';\n  \n  totalTime += responseTime;\n  \n  // Count questions\n  const shortQ = question.substring(0, 50);\n  questionCounts[shortQ] = (questionCounts[shortQ] || 0) + 1;\n  \n  // Count documents\n  if (documentsUsed) {\n    documentsUsed.split(';').forEach(doc => {\n      const docTrim = doc.trim();\n      if (docTrim && docTrim !== '') {\n        documentCounts[docTrim] = (documentCounts[docTrim] || 0) + 1;\n      }\n    });\n  }\n  \n  // Recent queries (last 10)\n  if (index < 10) {\n    stats.recentQueries.push({\n      timestamp: new Date(data.Timestamp).toLocaleString(),\n      question: question.substring(0, 50),\n      responseTime: responseTime\n    });\n  }\n});\n\nstats.avgResponseTime = Math.round(totalTime / stats.totalQueries) || 0;\n\n// Top 5 questions\nstats.topQuestions = Object.entries(questionCounts)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([q, count]) => ({ question: q, count }));\n\n// Top 5 documents\nstats.topDocuments = Object.entries(documentCounts)\n  .sort((a, b) => b[1] - a[1])\n  .slice(0, 5)\n  .map(([doc, count]) => ({ document: doc, count }));\n\nreturn [{ json: { stats } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "12671344-9c8e-497c-b251-a16510620342",
+      "name": "Calculate Stats"
+    },
+    {
+      "parameters": {
+        "content": "# Query Analytics Dashbord\n",
+        "height": 384,
+        "width": 832
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16,
+        -144
+      ],
+      "typeVersion": 1,
+      "id": "c608bc0e-4f80-4ce7-8810-e085fbbcbf6e",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Calculate Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Stats": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "77f0e8e0-60db-4258-be5c-fa078de04114",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "nI27uUiOp6-iV8mqX2ncd",
+  "tags": []
+}

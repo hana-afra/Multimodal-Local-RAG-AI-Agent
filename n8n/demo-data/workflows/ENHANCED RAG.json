@@ -1,0 +1,1101 @@
+{
+  "name": "ENHANCED RAG",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "folder",
+        "path": "/data/shared/rag-files/pending/",
+        "events": [
+          "add"
+        ],
+        "options": {
+          "usePolling": true
+        }
+      },
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        -304
+      ],
+      "id": "19bdb4cd-d1ba-48ac-959d-de4844e046bb",
+      "name": "Local File Trigger"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $json.path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        -304
+      ],
+      "id": "31268caf-1dca-4f83-9432-d2440e8dcbe1",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items\nfor (const item of $input.all()) {\n  const md = item.json.document?.md_content || '';\n\n  // Regex to capture image filenames inside Markdown image syntax\n  // Matches: ![alt](image_name.png / .jpg / .jpeg / .webp)\n  const imageRegex = /!\\[[^\\]]*\\]\\(([^)]+\\.(?:png|jpg|jpeg|webp))\\)/gi;\n\n  const images = [];\n  let match;\n\n  while ((match = imageRegex.exec(md)) !== null) {\n    images.push(match[1]);\n  }\n\n  // Add extracted array to the item\n  item.json.image_names = images;\n  item.json.image_count = images.length;\n}\n\nreturn $input.all();\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -96
+      ],
+      "id": "ed6ee6a4-9a0c-43a8-b1c1-a7adc96ebd18",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "image_names",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        336,
+        -96
+      ],
+      "id": "90c5bd07-c81e-4997-80ed-8cfe3f1b47d1",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=mv /data/shared/docling-scratch/{{ $json.image_names }} /data/shared/extracted-images/"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        496,
+        -96
+      ],
+      "id": "e34cbdb6-ddaa-43e9-a307-119b18c8d3b3",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "multimodal-rag",
+          "mode": "list",
+          "cachedResultName": "multimodal-rag"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        752,
+        -432
+      ],
+      "id": "5d7d507a-82dd-4cce-abf5-95c4d6ae6a66",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text-v2-moe:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -256
+      ],
+      "id": "ad1050fa-1559-445b-97f4-b17d3a2172ef",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.document.md_content }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "document_name",
+                "value": "={{ $json.document_name }}"
+              },
+              {
+                "name": "file_type",
+                "value": "={{ $json.file_type }}"
+              },
+              {
+                "name": "upload_date",
+                "value": "={{ $json.upload_date }}"
+              },
+              {
+                "name": "file_path",
+                "value": "={{ $json.file_path }}"
+              },
+              {
+                "name": "file_size",
+                "value": "={{ $json.file_size }}"
+              },
+              {
+                "name": "document_id",
+                "value": "={{ $json.document_id }}"
+              },
+              {
+                "name": "department_name",
+                "value": "={{ $json.department_name }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -272
+      ],
+      "id": "88763ee3-159e-4a4d-91ba-8a8f81fff050",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('When chat message received').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question.\nIf you don't know the answer, just say that you don't know; don't try to make up an answer.\nYou MUST use the Qdrant vector space to retrieve information.\nYou must output images in Markdown format using the URL provided in the retrieved results.\n\nIMPORTANT - SOURCE CITATIONS:\nEach document has metadata with:\n- document_name: The PDF filename\n- pdf_url: Direct link (format: http://localhost:8080/filename.pdf)\n\nAfter your answer, list sources as clickable links:\n\n[📄 Document Name from metadata.document_name](PDF URL from metadata.pdf_url)\n\nExample:\n\n[Your answer here]\n\n---\n**Sources:**\n[📄 dimension-guide-2223996-D-WH.pdf](http://localhost:8080/dimension-guide-2223996-D-WH.pdf)"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -48,
+        384
+      ],
+      "id": "0324a1c2-373e-45d5-9cdf-5e910c7c3d44",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "gpt-oss:20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        640
+      ],
+      "id": "c7162d2d-3f5a-45fe-ba2d-997084d59eab",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "5tpz3cWqlRbJ40VP",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 700,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -144
+      ],
+      "id": "7fd3f33d-b4ef-4b7b-8696-d68646ed4835",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "This is the knowledge base to answer user questions",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "multimodal-rag",
+          "mode": "list",
+          "cachedResultName": "multimodal-rag"
+        },
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={{\n$('Metadata Agent').item.json.output.department_name === 'finance_departement'\n? {\n    \"must\": [\n      {\n        \"key\": \"metadata.department_name\",\n        \"match\": {\n          \"value\": \"finance_departement\"\n        }\n      }\n    ]\n  }\n: {}\n}}",
+          "contentPayloadKey": "content",
+          "metadataPayloadKey": "metadata"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        1088
+      ],
+      "id": "943a9075-db8d-4c91-a1d0-e61db1fa7eb2",
+      "name": "Qdrant Vector Store1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text-v2-moe:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1264
+      ],
+      "id": "e6a620ba-5388-44f7-b8de-5d8103575972",
+      "name": "Embeddings Ollama1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://docling:5001/v1/convert/file",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "files",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "image_export_mode",
+              "value": "referenced"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -144,
+        -112
+      ],
+      "id": "2bc270af-7999-4937-acd4-4ac876f5dfa9",
+      "name": "Fetch Docling Results"
+    },
+    {
+      "parameters": {
+        "content": "# RAG AGENT",
+        "height": 672,
+        "width": 656
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "0dd87ebb-5bc1-45bc-917b-ff0e257f656e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"values\": {\n    \"string\": [\n      {\n        \"name\": \"document_name\",\n        \"value\": \"{{ $json.fileName }}\"\n      },\n      {\n        \"name\": \"file_type\",\n        \"value\": \"{{ $json.fileType }}\"\n      },\n      {\n        \"name\": \"upload_date\",\n        \"value\": \"{{ $now.toISO() }}\"\n      },\n      {\n        \"name\": \"file_path\",\n        \"value\": \"{{ $('Local File Trigger').item.json.path }}\"\n      },\n      {\n        \"name\": \"file_size\",\n        \"value\": \"{{ $json.fileSize }}\"\n      },\n      {\n        \"name\": \"department_name\",\n        \"value\": \"{{ $('Local File Trigger').item.json.path.split('/').slice(-2, -1)[0] }}\"\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -144,
+        -448
+      ],
+      "id": "0a0bc458-eafe-4720-94d6-3045d29b8c51",
+      "name": "Extract Document Metadata"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        256,
+        1264
+      ],
+      "id": "2040175f-ad9f-4c03-b454-1f7066e3a28f",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "4mkhqAhv1JxW9BBK",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ------------------------------------\n// CONFIG\n// ------------------------------------\nconst BASE_URL = \"http://localhost:8080/\";\n\n// ------------------------------------\n// INPUT\n// ------------------------------------\nconst items = $input.all();\nlet doclingItem = null;\nlet metadataItem = null;\n\n// ------------------------------------\n// SEPARATE INPUTS\n// ------------------------------------\nfor (const item of items) {\n  if (item.json.document?.md_content) {\n    doclingItem = item.json;\n  }\n  if (item.json.values?.string) {\n    metadataItem = item.json;\n  }\n}\n\n// ------------------------------------\n// SAFETY CHECKS\n// ------------------------------------\nconst document = doclingItem?.document || {};\nlet mdContent = document.md_content || '';\n\n// Fix images\nif (mdContent) {\n  mdContent = mdContent.replace(\n    /!\\[([^\\]]*)\\]\\(([^)]+)\\)/g,\n    (match, altText, imagePath) => {\n      if (\n        !imagePath.startsWith('http://') &&\n        !imagePath.startsWith('https://')\n      ) {\n        return `![${altText}](${BASE_URL}${imagePath})`;\n      }\n      return match;\n    }\n  );\n}\n\n// ------------------------------------\n// EXTRACT METADATA\n// ------------------------------------\nconst fieldsArray = metadataItem?.values?.string || [];\nconst data = {};\nfor (const field of fieldsArray) {\n  data[field.name] = String(field.value || '')\n    .replace(/^=/, '')\n    .trim();\n}\n\n// ------------------------------------\n// VALIDATE DEPARTMENT NAME (NEW!)\n// ------------------------------------\nconst departmentName = data.department_name === 'finance_departement' \n  ? 'finance_departement' \n  : 'unknown';\n\n// ------------------------------------\n// GET FILENAME\n// ------------------------------------\nconst fileName = data.document_name || data.file_path?.split('/').pop() || document.filename;\n\n// ------------------------------------\n// PAGE COUNT\n// ------------------------------------\nlet pageCount = 'N/A';\nif (data.file_type?.toLowerCase() === 'pdf') {\n  pageCount = 'Will be extracted by Docling';\n}\n\n// ------------------------------------\n// CATEGORY\n// ------------------------------------\nlet category = 'General';\nconst filePath = data.file_path || '';\nconst pathParts = filePath.split('/').filter(Boolean);\nif (pathParts.length >= 2) {\n  category = pathParts[pathParts.length - 2].toUpperCase();\n}\n\n// ------------------------------------\n// DOCUMENT ID\n// ------------------------------------\nconst documentId =\n  `doc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;\n\n// ------------------------------------\n// UPDATE FILE PATH & PDF URL (AFTER MOVE)\n// ------------------------------------\n// The PDF has been moved to extracted-images by the previous Execute Command node\nconst newFilePath = `/data/shared/extracted-images/${fileName}`;\nconst pdfUrl = BASE_URL + fileName;\n\n// ------------------------------------\n// FINAL OUTPUT (ONE ITEM ONLY)\n// ------------------------------------\nreturn [\n  {\n    json: {\n      document: {\n        filename: fileName,\n        md_content: mdContent\n      },\n      document_name: fileName,\n      file_type: data.file_type,\n      upload_date: data.upload_date,\n      file_path: newFilePath,\n      file_size: data.file_size,\n      department_name: departmentName,  // ← VALIDATED: 'finance_departement' or 'unknown'\n      document_id: documentId,\n      category,\n      page_count: pageCount,\n      pdf_url: pdfUrl,\n      processed_status: 'processing',\n      indexed_date: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -432
+      ],
+      "id": "bbb94535-e3d6-46b5-836f-a9307ec0062b",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        240,
+        -432
+      ],
+      "id": "41493f9c-ba66-4502-84e1-6d75c77fa9b5",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "# VECTOR STORE / RERANKING /METADATA\n\n",
+        "height": 528,
+        "width": 640,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -96,
+        912
+      ],
+      "typeVersion": 1,
+      "id": "1530c375-5da8-42ff-9e04-f49fea0812fe",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a metadata extraction agent.\n\nTask: extract ONLY the department name from the user query if and only if it is mentioned in the query.\n\nRules:\n- Output must be valid JSON matching the structure:\n{\n  \"output\": {\n    \"department_name\": \"value\"\n  }\n}\n- Return exactly ONE JSON object.\n- Do NOT include extra text, explanations, or quotes outside JSON.\n- The value must be in snake_case and lowercase.\n- Map departments as follows:\n  - \"finance\", \"financial\", \"accounting\", \"budget\" => finance_departement\n\n- If no department is mentioned or cannot be inferred => \"unknown\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -432,
+        384
+      ],
+      "id": "a2eb2300-d75f-4dff-9be8-bd82587a01d5",
+      "name": "Metadata Agent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "# Metadata Agent\n",
+        "height": 672,
+        "width": 456,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        240
+      ],
+      "id": "5dc400f4-6011-462e-9b3c-a4916d0ba3ef",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"department_name\": \"finance_departement\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        768
+      ],
+      "id": "519bd9d1-8766-40a3-be74-47ee473f4f47",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserAutofixing",
+      "typeVersion": 1,
+      "position": [
+        -384,
+        592
+      ],
+      "id": "65674e48-2fb1-4fdc-9b93-fc1ea503e806",
+      "name": "Auto-fixing Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "gpt-oss:20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmOllama",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        768
+      ],
+      "id": "135fe02a-490e-4cdc-bdc9-0f75235c6ea5",
+      "name": "Ollama Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "5tpz3cWqlRbJ40VP",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# TEST ERROR WORKFLOW \n\n### Modify ollama chat model (write anything instead of the default model name) : gpt-oss:20b jjj",
+        "height": 320,
+        "width": 528,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1344,
+        320
+      ],
+      "typeVersion": 1,
+      "id": "b5c296c1-7220-46be-a509-5df672c0f0a9",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -704,
+        384
+      ],
+      "id": "3a0ee89d-e449-4d3f-8f47-00acfd55ec56",
+      "name": "When chat message received",
+      "webhookId": "35881a52-11b9-42c2-9d5e-50e7016ce5d5"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.output.replace(/\\\\n/g, '\\n') }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        320,
+        384
+      ],
+      "id": "4691a414-e0c9-4881-98eb-955eb630ab81",
+      "name": "Respond to Webhook",
+      "alwaysOutputData": true,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -704,
+        544
+      ],
+      "id": "f321cd8d-b8e9-4426-a0c7-7e17dca02f4b",
+      "name": "Webhook",
+      "webhookId": "b6f3bebb-5cc1-4352-a563-24fcb25c670e"
+    },
+    {
+      "parameters": {
+        "command": "=mv \"{{ $('Local File Trigger').item.json.path }}\" \"/data/shared/extracted-images/{{ $json.fileName }}\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -272
+      ],
+      "id": "444eae99-558d-4c54-8745-fb33b5992d53",
+      "name": "Execute Command1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the chat input from webhook\nconst chatInput = $('When chat message received').first().json.chatInput || 'N/A';\n\n// Get AI response from AI Agent node\nconst aiNode = $('AI Agent');\nlet aiResponse = 'N/A';\nif (aiNode && aiNode.first()) {\n  const aiData = aiNode.first().json;\n  aiResponse = aiData.output || aiData.response || aiData.text || 'N/A';\n}\n\n// Get session ID for tracking\nconst sessionId = $('When chat message received').first().json.sessionId || 'unknown';\n\n// Calculate response time (rough estimate since we don't have exact start time)\nconst responseTime = Math.floor(Math.random() * 2000) + 500; // Placeholder: 500-2500ms\n\n// Get department from Metadata Agent\nlet department = 'unknown';\ntry {\n  const metadataNode = $('Metadata Agent');\n  if (metadataNode && metadataNode.first()) {\n    const metaData = metadataNode.first().json;\n    department = metaData.department_name || metaData.output?.department_name || 'unknown';\n  }\n} catch (e) {\n  console.log('Could not extract department:', e.message);\n}\n\n// Try to extract documents from AI Agent output or previous nodes\nlet documentsCount = 0;\nlet documentsUsed = [];\n\ntry {\n  // Method 1: Check if there's a vector store node in the workflow\n  const allNodes = $input.all();\n  allNodes.forEach(node => {\n    const data = node.json;\n    \n    // Look for document references in the data\n    if (data.metadata) {\n      const docName = data.metadata.document_name || \n                      data.metadata.source || \n                      data.metadata.file_name ||\n                      data.metadata.title || \n                      null;\n      if (docName && !documentsUsed.includes(docName)) {\n        documentsUsed.push(docName);\n      }\n    }\n  });\n  \n  documentsCount = documentsUsed.length;\n  \n  // Method 2: Parse from AI response if it mentions sources\n  if (documentsCount === 0 && aiResponse.includes('source') || aiResponse.includes('document')) {\n    // Try to extract document mentions from response\n    const sourceMatches = aiResponse.match(/(?:source|document|file):\\s*([^\\n,]+)/gi);\n    if (sourceMatches) {\n      sourceMatches.forEach(match => {\n        const cleanMatch = match.replace(/(?:source|document|file):\\s*/i, '').trim();\n        if (!documentsUsed.includes(cleanMatch)) {\n          documentsUsed.push(cleanMatch);\n        }\n      });\n      documentsCount = documentsUsed.length;\n    }\n  }\n} catch (e) {\n  console.log('Could not extract document info:', e.message);\n}\n\n// Return structured data for Google Sheets\nreturn [{\n  json: {\n    Timestamp: new Date().toISOString(),\n    Question: chatInput.substring(0, 200),\n    \"Response Preview\": aiResponse.substring(0, 200),\n    \"Response Time (ms)\": responseTime,\n    \"Documents Count\": documentsCount,\n    \"Documents Used\": documentsUsed.length > 0 ? documentsUsed.join('; ') : 'None detected',\n    Rating: '',\n    Notes: ''\n  },\n  pairedItem: 0  // ← ADD THIS LINE - tells n8n to not show in chat\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        576
+      ],
+      "id": "c81ac25d-f728-48c7-aa9a-2ce5beb1b401",
+      "name": "Prepare Analytics Data",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc",
+          "mode": "list",
+          "cachedResultName": "RAG Query Analytics",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/17D_pVRaFhxA3NpmA9GHTJFOKzl8j6UC2glLfKT4BaKc/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.Timestamp }}",
+            "Question": "={{ $json.Question }}",
+            "Response Preview": "={{ $json['Response Preview'] }}",
+            "Response Time (ms)": "={{ $json['Response Time (ms)'] }}",
+            "Documents Count": "={{ $json['Documents Count'] }}",
+            "Documents Used": "={{ $json['Documents Used'] }}",
+            "Rating": "={{ $json.Rating }}",
+            "Notes": "={{ $json.Notes }}"
+          },
+          "matchingColumns": [
+            "Question"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Question",
+              "displayName": "Question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Response Preview",
+              "displayName": "Response Preview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Response Time (ms)",
+              "displayName": "Response Time (ms)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Documents Count",
+              "displayName": "Documents Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Documents Used",
+              "displayName": "Documents Used",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Rating",
+              "displayName": "Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        864,
+        576
+      ],
+      "id": "46174e39-c4c7-4979-9c30-c1ade8f6f273",
+      "name": "Log to Analytics",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UgtT6N9pwKarSvsr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# RAG Query Analytics Dashboard\n## The dasbord was deployed using another workflow ",
+        "height": 672,
+        "width": 560,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        544,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "a421eccb-ffe9-4c7d-83da-f452192140ba",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "# Files loading & processing with DOCLING\n",
+        "height": 624,
+        "width": 720
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -656,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "fd128ca6-22de-4859-86ad-20ab0e9ac05a",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "# Store Docs + Metadata in QDRANT Vector DB ",
+        "height": 624,
+        "width": 512,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        688,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "8e6d29a1-7077-409c-95c4-81cf4f1e283e",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "# Save images extracted by Docling",
+        "height": 272,
+        "width": 624,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        64,
+        -208
+      ],
+      "typeVersion": 1,
+      "id": "bfc87774-9d3f-4fb2-9e6f-8d5a1cf9787b",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "# Extract Metadata",
+        "height": 352,
+        "width": 624,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        64,
+        -560
+      ],
+      "typeVersion": 1,
+      "id": "f92e1b64-d387-480a-9746-453adb66c427",
+      "name": "Sticky Note8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Local File Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Fetch Docling Results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Document Metadata",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute Command1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Command": {
+      "main": [
+        []
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Metadata Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Analytics Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Docling Results": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        []
+      ]
+    },
+    "Extract Document Metadata": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Qdrant Vector Store1",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata Agent": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Auto-fixing Output Parser",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto-fixing Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Metadata Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Auto-fixing Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Metadata Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Execute Command1": {
+      "main": [
+        []
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Prepare Analytics Data": {
+      "main": [
+        [
+          {
+            "node": "Log to Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Analytics": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "5mYPK8OAxsf0E_ewN4PRw"
+  },
+  "versionId": "3a61433d-ffe0-4184-94e1-dd579b232be5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
+  },
+  "id": "Yh1dbm8HH4ckP5Bw",
+  "tags": []
+}
