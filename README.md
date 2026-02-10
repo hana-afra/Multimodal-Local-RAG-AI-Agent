@@ -5,6 +5,25 @@
 > **Note:** Built on top of [n8n-io/self-hosted-ai-starter-kit](https://github.com/n8n-io/self-hosted-ai-starter-kit)
 
 ---
+## 📸 System Preview
+
+<p align="center">
+  <img src="assets/image.png" width="800"/>
+</p>
+
+<p align="center">
+  <img src="assets/image%20(1).png" width="800"/>
+</p>
+
+<p align="center">
+  <img src="assets/image%20(2).png" width="800"/>
+</p>
+
+<p align="center">
+  <img src="assets/image%20(3).png" width="800"/>
+</p>
+
+---
 
 ## 🌟 Key Features
 
