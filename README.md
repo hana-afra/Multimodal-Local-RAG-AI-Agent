@@ -180,8 +180,8 @@ Expense reimbursement requires:
 - Receipts for all purchases over $50
 - Manager approval within 30 days
 - Submission via finance portal
+```
 
----
 
 ### **🔹 Analytics Dashboard**
 
